@@ -38,7 +38,7 @@ def analyze_folder(folder_path, depth=0, file_type_summary=None, last_depth=0):
     folder_summary = []
     total_size = get_size(folder_path)
     
-    if total_size < 5 * 1024 * 1024:  # Skip folders smaller than 5MB
+    if total_size < 50 * 1024:  # Skip folders smaller than 50KB
         return "", last_depth
 
     indent = ' ' * 4 * depth
@@ -59,7 +59,7 @@ def analyze_folder(folder_path, depth=0, file_type_summary=None, last_depth=0):
         # Handle files in current directory
         for file in filenames:
             file_size = os.path.getsize(os.path.join(dirpath, file))
-            if file_size < 5 * 1024 * 1024:  # Skip files smaller than 5MB
+            if file_size < 50 * 1024:  # Skip files smaller than 50KB
                 continue
             file_ext = os.path.splitext(file)[1]
             file_types[file_ext].append(file_size)
@@ -72,7 +72,7 @@ def analyze_folder(folder_path, depth=0, file_type_summary=None, last_depth=0):
         # Add subfolder names for recursive analysis
         for subfolder in dirnames:
             subfolder_path = os.path.join(dirpath, subfolder)
-            if get_size(subfolder_path) >= 5 * 1024 * 1024:  # Skip subfolders smaller than 5MB
+            if get_size(subfolder_path) >= 50 * 1024:  # Skip subfolders smaller than 50KB
                 subfolders.append(subfolder)
         
         # Only process the first level (do not recurse again in this loop)
@@ -102,9 +102,12 @@ def export_to_txt(folder_path, content):
     print(f"Analysis exported to {output_file}")
 
 def generate_file_type_summary(file_type_summary):
-    """Generates a summary of all file types encountered and their total sizes."""
-    summary_lines = ["File Type Summary:\n"]
-    for ext, data in file_type_summary.items():
+    """Generates a summary of all file types encountered and their total sizes, sorted by size."""
+    # Sort file types by total size (descending order)
+    sorted_file_types = sorted(file_type_summary.items(), key=lambda x: x[1]['size'], reverse=True)
+    
+    summary_lines = ["File Type Summary (Largest to Smallest):\n"]
+    for ext, data in sorted_file_types:
         count = data['count']
         total_size = data['size']
         summary_lines.append(f"- {count} x {ext} ({human_readable_size(total_size)})")
@@ -113,9 +116,9 @@ def generate_file_type_summary(file_type_summary):
 
 if __name__ == "__main__":
     # You can optionally provide the folder path here, or it will prompt for input if left blank
-    folder_path = "/Users/sqb/Downloads/"  # <-- Change this to your default folder or leave blank
+    folder_path = "path/to/default/folder"  # <-- Change this to your default folder or leave blank
 
-    if not folder_path or folder_path == "/Users/sqb/Downloads/":
+    if not folder_path or folder_path == "path/to/default/folder":
         folder_path = input("Enter the path to the folder: ")
 
     # Dictionary to hold global file type summary (count and total size)
@@ -124,7 +127,7 @@ if __name__ == "__main__":
     # Perform folder analysis
     analysis, _ = analyze_folder(folder_path, file_type_summary=file_type_summary)
     
-    # Generate file type summary
+    # Generate file type summary, sorted by size
     file_type_summary_output = generate_file_type_summary(file_type_summary)
 
     # Combine the summary and the detailed folder analysis
@@ -134,4 +137,4 @@ if __name__ == "__main__":
         print(final_output)
         export_to_txt(folder_path, final_output)
     else:
-        print(f"No files or folders larger than 5MB in '{folder_path}'.")
+        print(f"No files or folders larger than 50KB in '{folder_path}'.")
