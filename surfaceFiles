@@ -1,0 +1,60 @@
+import os
+import shutil
+import re
+
+# Function to clean up folder names from ASCII or location strings
+def clean_folder_name(folder_name):
+    # Replace any ASCII or special characters with underscores
+    return re.sub(r'[^\w\s-]', '', folder_name).strip()
+
+# Define file type categories
+image_extensions = ['.jpeg', '.jpg', '.png', '.heic', '.tif', '.tiff', '.webp', '.gif', '.svg', '.avif']
+pdf_extensions = ['.pdf']
+spreadsheet_extensions = ['.xlsx', '.csv']
+document_extensions = ['.docx', '.odt', '.pages', '.xml', '.asc', '.txt']
+
+# Define function to copy and move files based on their type
+def process_files(src_folder):
+    base_folder = os.path.dirname(src_folder)
+    contents_folder = os.path.join(base_folder, "Contents")
+    
+    # Create the required folder structure
+    folders = ['Inbox', 'Projects', 'Areas of Responsibility', 'Archive']
+    for folder in folders:
+        os.makedirs(os.path.join(contents_folder, folder), exist_ok=True)
+
+    # Traverse the source folder
+    for root, dirs, files in os.walk(src_folder):
+        for file in files:
+            # Get the file extension
+            file_extension = os.path.splitext(file)[1].lower()
+
+            # Check if the file is in one of the target types
+            if (file_extension in image_extensions + pdf_extensions + spreadsheet_extensions + document_extensions):
+                # Create a non-destructive (deep) copy of the file
+                file_path = os.path.join(root, file)
+                
+                # Find the top-level subfolder of the file relative to the src_folder
+                relative_path = os.path.relpath(root, src_folder)
+                top_level_folder = relative_path.split(os.sep)[0] if os.sep in relative_path else relative_path
+                
+                # Clean folder name to avoid location strings or ASCII characters
+                clean_name = clean_folder_name(top_level_folder)
+                
+                # Rename the file by appending the folder name (not subfolder)
+                new_filename = f"{os.path.splitext(file)[0]}_{clean_name}{file_extension}"
+                
+                # Determine destination based on subfolder
+                if clean_name in folders:
+                    dest_folder = os.path.join(contents_folder, clean_name)
+                else:
+                    dest_folder = contents_folder  # Default to Contents if subfolder doesn't match
+
+                # Copy the file to the appropriate folder with new name
+                dest_path = os.path.join(dest_folder, new_filename)
+                shutil.copy2(file_path, dest_path)
+
+if __name__ == "__main__":
+    # Specify the source folder path here
+    source_folder = "/Users/sqb/Downloads/24.09.18_Notion_Export/Archive"
+    process_files(source_folder)
