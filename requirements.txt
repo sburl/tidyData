@@ -1,3 +1,4 @@
 PyPDF2
 EbookLib
 html2text
+Pillow

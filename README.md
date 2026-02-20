@@ -1,5 +1,8 @@
 # tidyData
 
+**Created:** 2024-09-17
+**Last Updated:** 2026-02-20
+
 **tidyData** is a collection of Python scripts designed to streamline data and file management tasks. This repository contains multiple programs, each with a specific function, making it easier to handle Markdown files, PDF documents, folder organization, and more.
 
 ## Programs Overview
@@ -50,16 +53,59 @@ I used this to flatten the photos from my aforementioned Notion database export.
 - Specify the source folder to be processed.
 - Run the script to create a new folder structure with sorted and cleaned files.
 
+### 6. combineTextFiles.py
+This script combines all text files from a specified folder into a single text file. It supports a wide variety of text file extensions (`.txt`, `.md`, `.py`, `.js`, `.html`, `.css`, `.json`, and many more). Each file is separated by clear delimiters showing the filename, making it easy to identify where each file's content begins and ends.
+
+I use this to combine multiple text files into one file to get around ChatGPT's 10 file upload limit.
+
+**Usage:**
+- Specify the folder containing text files.
+- Optionally customize which file extensions to include.
+- Run the script to generate a combined text file named `Combined_Text_Files.txt`.
+
+### 7. epubToMarkdown.py
+Converts EPUB files to Markdown format, with support for batch conversion of entire folders.
+
+**Usage:**
+- Specify an EPUB file or folder of EPUB files.
+- Run the script to generate Markdown output.
+
+### 8. imagekit.py
+Image processing toolkit: strip metadata, generate thumbnails, detect orientation, and extract EXIF dates. Works as both a library and a CLI tool. Supports JPEG, PNG, GIF, and WebP.
+
+**As a library:**
+```python
+from imagekit import strip_metadata, make_thumbnail, process_image
+
+strip_metadata("photo.jpg", "clean.jpg")
+make_thumbnail("photo.jpg", "thumb.jpg", max_width=800)
+```
+
+**From the command line:**
+```sh
+python3 imagekit.py strip photo.jpg clean.jpg
+python3 imagekit.py thumb photo.jpg thumb.jpg --max-width 800
+python3 imagekit.py process photo.jpg --out-dir ./output --thumb-dir ./thumbs
+```
+
 ## Installation
-To use these scripts, you'll need Python 3 and a few additional libraries. You can install the dependencies using:
+
+Install as a pip package directly from GitHub:
+
+```sh
+pip install git+https://github.com/sburl/tidyData.git
+```
+
+Or install dependencies manually:
 
 ```sh
 pip install -r requirements.txt
 ```
 
 ## Dependencies
-- `os` and `shutil` (Standard Python libraries)
-- `PyPDF2` (for handling PDF files)
+- `PyPDF2` (PDF handling)
+- `EbookLib` + `html2text` (EPUB conversion)
+- `Pillow` (image processing)
 
 ## License
 This project is licensed under the MIT License.

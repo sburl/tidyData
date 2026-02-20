@@ -1,0 +1,29 @@
+[build-system]
+requires = ["setuptools>=68.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "tidydata"
+version = "1.0.0"
+description = "A collection of Python utilities for data and file management."
+readme = "README.md"
+license = "MIT"
+requires-python = ">=3.9"
+dependencies = [
+    "PyPDF2",
+    "EbookLib",
+    "html2text",
+    "Pillow",
+]
+
+[tool.setuptools]
+py-modules = [
+    "combineMarkdown",
+    "combinePDFS",
+    "combineTextFiles",
+    "docSplice",
+    "epubToMarkdown",
+    "folderSizer",
+    "imagekit",
+    "surfaceFiles",
+]
