@@ -1,5 +1,8 @@
 # tidyData
 
+**Created:** 2024-09-17
+**Last Updated:** 2026-02-20
+
 **tidyData** is a collection of Python scripts designed to streamline data and file management tasks. This repository contains multiple programs, each with a specific function, making it easier to handle Markdown files, PDF documents, folder organization, and more.
 
 ## Programs Overview
