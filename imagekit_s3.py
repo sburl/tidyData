@@ -100,9 +100,13 @@ class S3ImageStore:
             from PIL import Image
             from io import BytesIO
             response = self.client.get_object(Bucket=self.bucket, Key=key)
-            img = Image.open(BytesIO(response['Body'].read()))
-            width, height = img.size
-            img.close()
+            body = response['Body']
+            try:
+                img = Image.open(BytesIO(body.read()))
+                width, height = img.size
+                img.close()
+            finally:
+                body.close()
 
         return width, height
 

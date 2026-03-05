@@ -287,7 +287,10 @@ def upload_new_photos(store, input_dir, uploaded_dir,
     # Sort by EXIF date (oldest first)
     dated = []
     for img_path in images:
-        date = extract_exif_date(img_path) or datetime.now()
+        try:
+            date = extract_exif_date(img_path) or datetime.now()
+        except Exception:
+            date = datetime.now()
         dated.append((date, img_path))
     dated.sort(key=lambda x: x[0])
 
@@ -377,8 +380,8 @@ def generate_image_yaml(store=None, manifest=None, base_url='',
             url = store.url(key)
             w, h = store.get_dimensions(key)
 
-            if w > h:
-                horizontal.append(url)
+            if w >= h:
+                horizontal.append(url)  # horizontal + square
             else:
                 vertical.append(url)
 
