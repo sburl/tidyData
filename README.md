@@ -1,84 +1,28 @@
 # tidyData
 
 **Created:** 2024-09-17
-**Last Updated:** 2026-02-20
+**Last Updated:** 2026-03-05
 
-**tidyData** is a collection of Python scripts designed to streamline data and file management tasks. This repository contains multiple programs, each with a specific function, making it easier to handle Markdown files, PDF documents, folder organization, and more.
+**tidyData** is a collection of Python utilities for data tidying, file management, and image privacy. Strip metadata from photos, generate thumbnails, batch-process directories, and upload to S3 — all with simple library calls or CLI commands.
 
-## Programs Overview
+## Image Privacy Toolkit
 
-### 1. combineMarkdown.py
-This script combines all Markdown (`.md`) files from a specified folder into a single Markdown file. Each original file is separated by its name as a header, making it easy to navigate through the combined content.
+### imagekit.py — Core Image Processing
 
-I use this to combine Markdown files I export from Perplexity via the "Save My Chatbot" (Chrome extension)[https://chromewebstore.google.com/detail/save-my-chatbot-ai-conver/agklnagmfeooogcppjccdnoallkhgkod?hl=en].
-
-**Usage:**
-- Specify the folder containing Markdown files.
-- Run the script to generate a combined Markdown file named `All Markdown.md`.
-
-### 2. combinePDFS.py
-This script merges all PDF files from a specified folder into a single output PDF. It ensures that the resulting document contains all pages from the individual PDFs in the desired order.
-
-I use this to combine PDF files since Preview on Mac is actually awful (adding 5 x 10mb PDFs together makes a 200mb file).
-
-**Usage:**
-- Specify the folder containing PDF files.
-- Run the script to generate a combined PDF file.
-
-### 3. docSplice.py
-This script processes document files, extracting specific sections based on predefined patterns and saving them into new files. It is useful for splitting or reorganizing content from larger documents.
-
-I use this to split up 1,000 page word docs so I can feed them to LLMs.
-
-**Usage:**
-- Specify the folder containing the documents to be processed.
-- Define the patterns for content extraction.
-- Run the script to create new files with extracted content.
-
-### 4. folderSizer.py
-This script analyzes the size of folders and provides detailed information about space usage, including the composition of files within a folder. It is helpful for identifying large files and understanding storage utilization.
-
-I used this with an export of my entire Notion database to pull out all of the photos so I could process them with an LLM.
-
-**Usage:**
-- Specify the folder to be analyzed.
-- Run the script to get an overview of folder sizes and file composition.
-
-### 5. surfaceFiles.py
-This script traverses a specified folder and copies certain files into a newly created folder structure. The new structure is organized based on the original file location, with cleaned and formatted filenames.
-
-I used this to flatten the photos from my aforementioned Notion database export.
-
-**Usage:**
-- Specify the source folder to be processed.
-- Run the script to create a new folder structure with sorted and cleaned files.
-
-### 6. combineTextFiles.py
-This script combines all text files from a specified folder into a single text file. It supports a wide variety of text file extensions (`.txt`, `.md`, `.py`, `.js`, `.html`, `.css`, `.json`, and many more). Each file is separated by clear delimiters showing the filename, making it easy to identify where each file's content begins and ends.
-
-I use this to combine multiple text files into one file to get around ChatGPT's 10 file upload limit.
-
-**Usage:**
-- Specify the folder containing text files.
-- Optionally customize which file extensions to include.
-- Run the script to generate a combined text file named `Combined_Text_Files.txt`.
-
-### 7. epubToMarkdown.py
-Converts EPUB files to Markdown format, with support for batch conversion of entire folders.
-
-**Usage:**
-- Specify an EPUB file or folder of EPUB files.
-- Run the script to generate Markdown output.
-
-### 8. imagekit.py
-Image processing toolkit: strip metadata, generate thumbnails, detect orientation, and extract EXIF dates. Works as both a library and a CLI tool. Supports JPEG, PNG, GIF, and WebP.
+Strip metadata, generate thumbnails, detect orientation, and extract EXIF dates. Works as both a library and a CLI tool. Supports JPEG, PNG, GIF, and WebP.
 
 **As a library:**
 ```python
 from imagekit import strip_metadata, make_thumbnail, process_image
 
+# Strip ALL metadata (GPS, camera, timestamps, EXIF, XMP, ICC, IPTC)
 strip_metadata("photo.jpg", "clean.jpg")
+
+# Generate a width-constrained thumbnail
 make_thumbnail("photo.jpg", "thumb.jpg", max_width=800)
+
+# Combined: strip + thumbnail in one call
+result = process_image("photo.jpg", full_dst="clean.jpg", thumb_dst="thumb.jpg")
 ```
 
 **From the command line:**
@@ -88,30 +32,84 @@ python3 imagekit.py thumb photo.jpg thumb.jpg --max-width 800
 python3 imagekit.py process photo.jpg --out-dir ./output --thumb-dir ./thumbs
 ```
 
-## Installation
+### imagekit_pipeline.py — Batch Processing
 
-Install as a pip package directly from GitHub:
+Reusable pipelines for directory-level image processing. All functions accept paths and config as parameters — no hardcoded values.
 
-```sh
-pip install git+https://github.com/sburl/tidyData.git
+```python
+from imagekit_pipeline import process_local_images, catalog_images, sanitize_images
+
+# Process a directory: strip metadata + generate web-optimized versions
+process_local_images('photos/', 'photos/web/', max_width=1200, quality=80)
+
+# Catalog images with EXIF dates for chronological sorting
+catalog_images('photos/', 'manifest.json')
+
+# Strip metadata and rename sequentially (0001.jpeg, 0002.jpeg, ...)
+sanitize_images('manifest.json', 'sanitized/')
 ```
 
-Or install dependencies manually:
+### imagekit_s3.py — S3 Image Storage
+
+Parameterized S3 wrapper for uploading, listing, and managing images. Requires `boto3` (install with `pip install tidydata[s3]`).
+
+```python
+from imagekit_s3 import S3ImageStore
+from imagekit_pipeline import upload_new_photos, generate_image_yaml
+
+store = S3ImageStore(bucket='my-images', region='us-east-1')
+
+# Upload new photos with metadata stripping + thumbnails
+entries = upload_new_photos(
+    store,
+    input_dir='to-upload/',
+    uploaded_dir='uploaded/',
+    thumb_width=800,
+)
+
+# Generate a YAML manifest from S3 bucket contents
+generate_image_yaml(store=store, output_path='images.yml')
+```
+
+## File Management Utilities
+
+### combineMarkdown.py
+Combines all Markdown (`.md`) files from a folder into a single file with headers.
+
+### combinePDFS.py
+Merges all PDF files from a folder into a single output PDF.
+
+### combineTextFiles.py
+Combines all text files from a folder into one file with delimiters.
+
+### docSplice.py
+Splits large documents into sections based on patterns.
+
+### epubToMarkdown.py
+Converts EPUB files to Markdown format.
+
+### folderSizer.py
+Analyzes folder sizes and file composition.
+
+### surfaceFiles.py
+Flattens nested folder structures by copying files with cleaned names.
+
+## Installation
 
 ```sh
-pip install -r requirements.txt
+# Core (image processing + file utilities)
+pip install git+https://github.com/sburl/tidyData.git
+
+# With S3 support
+pip install "tidydata[s3] @ git+https://github.com/sburl/tidyData.git"
 ```
 
 ## Dependencies
-- `PyPDF2` (PDF handling)
-- `EbookLib` + `html2text` (EPUB conversion)
-- `Pillow` (image processing)
+
+- `Pillow` — image processing
+- `PyPDF2` — PDF handling
+- `EbookLib` + `html2text` — EPUB conversion
+- `boto3` — S3 storage (optional, install with `[s3]`)
 
 ## License
-This project is licensed under the MIT License.
-
-## Contributing
-Contributions are welcome! Feel free to open issues or submit pull requests to improve the functionality or add new features.
-
-## Contact
-If you have any questions or suggestions, feel free to reach out or open an issue on GitHub.
+MIT License.
