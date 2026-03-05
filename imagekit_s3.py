@@ -90,8 +90,11 @@ class S3ImageStore:
         """Get (width, height) from S3 metadata, downloading as fallback."""
         head = self.client.head_object(Bucket=self.bucket, Key=key)
         metadata = head.get('Metadata', {})
-        width = int(metadata.get('width', 0))
-        height = int(metadata.get('height', 0))
+        try:
+            width = int(metadata.get('width', 0))
+            height = int(metadata.get('height', 0))
+        except (ValueError, TypeError):
+            width, height = 0, 0
 
         if width == 0 or height == 0:
             from PIL import Image

@@ -237,7 +237,7 @@ def sanitize_images(manifest_path, output_dir, quality=95):
 
 # ── S3 upload pipeline ────────────────────────────────────────────────────
 
-def upload_new_photos(store, input_dir, uploaded_dir, manifest_path=None,
+def upload_new_photos(store, input_dir, uploaded_dir,
                       thumb_width=800, thumb_quality=80, full_quality=95,
                       dry_run=False):
     """Process new photos and upload to S3 with thumbnails.
@@ -246,7 +246,6 @@ def upload_new_photos(store, input_dir, uploaded_dir, manifest_path=None,
         store: An S3ImageStore instance.
         input_dir: Directory with photos to upload.
         uploaded_dir: Directory to move originals after upload.
-        manifest_path: Optional path to a YAML manifest to update.
         thumb_width: Maximum thumbnail width.
         thumb_quality: JPEG quality for thumbnails.
         full_quality: JPEG quality for full-res images.
@@ -346,8 +345,8 @@ def upload_new_photos(store, input_dir, uploaded_dir, manifest_path=None,
 
 # ── Manifest generation ───────────────────────────────────────────────────
 
-def generate_image_yaml(store=None, manifest=None, output_path='_data/images.yml',
-                        newest_first=True):
+def generate_image_yaml(store=None, manifest=None, base_url='',
+                        output_path='_data/images.yml', newest_first=True):
     """Generate a YAML image manifest sorted by orientation.
 
     Provide either a store (reads from S3) or a manifest (list of dicts
@@ -356,6 +355,7 @@ def generate_image_yaml(store=None, manifest=None, output_path='_data/images.yml
     Args:
         store: Optional S3ImageStore to read images from.
         manifest: Optional list of manifest entries (from sanitize_images).
+        base_url: Base URL prefix for manifest-based generation.
         output_path: Path to write the YAML file.
         newest_first: If True, sort newest images first.
 
@@ -390,7 +390,6 @@ def generate_image_yaml(store=None, manifest=None, output_path='_data/images.yml
         entries.sort(key=lambda x: x['new_key'], reverse=newest_first)
 
         for e in entries:
-            base_url = store.base_url if store else ''
             url = f"{base_url}/{e['new_key']}" if base_url else e['new_key']
             if e.get('orientation') == 'vertical':
                 vertical.append(url)
