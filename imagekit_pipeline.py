@@ -96,6 +96,9 @@ def process_local_images(source_dir, web_dir, max_width=1200, quality=80,
     processed = 0
 
     for img_path in images:
+        if img_path.is_symlink():
+            print(f'  SKIP {img_path.name}: symlink')
+            continue
         web_path = web_dir / img_path.name
         try:
             w, h = strip_metadata(img_path, img_path, quality=strip_quality)
@@ -207,7 +210,7 @@ def sanitize_images(manifest_path, output_dir, quality=95):
             return datetime.min
     manifest.sort(key=_parse_date)
     total = len(manifest)
-    digits = len(str(total))
+    digits = max(4, len(str(total)))
     errors = 0
     start = time.time()
 
@@ -342,6 +345,8 @@ def upload_new_photos(store, input_dir, uploaded_dir,
             })
 
             dest = uploaded_dir / f'{seq}-{img_path.name}'
+            if dest.exists():
+                dest = uploaded_dir / f'{seq}-{int(time.time())}-{img_path.name}'
             shutil.move(str(img_path), str(dest))
             print(f'  {orientation} {w}x{h}')
 
@@ -399,7 +404,11 @@ def generate_image_yaml(store=None, manifest=None, base_url='',
 
         for i, key in enumerate(keys):
             url = store.url(key)
-            w, h = store.get_dimensions(key)
+            try:
+                w, h = store.get_dimensions(key)
+            except Exception as e:
+                print(f'  WARN: skipping {key}: {e}')
+                continue
 
             if w >= h:
                 horizontal.append(url)  # horizontal + square
