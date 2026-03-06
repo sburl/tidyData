@@ -4,8 +4,8 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "tidydata"
-version = "1.1.0"
-description = "A collection of Python utilities for data and file management."
+version = "2.0.0"
+description = "Python utilities for data tidying, file management, and image privacy."
 readme = "README.md"
 license = "MIT"
 requires-python = ">=3.9"
@@ -16,6 +16,9 @@ dependencies = [
     "Pillow",
 ]
 
+[project.optional-dependencies]
+s3 = ["boto3"]
+
 [tool.setuptools]
 py-modules = [
     "combineMarkdown",
@@ -25,5 +28,7 @@ py-modules = [
     "epubToMarkdown",
     "folderSizer",
     "imagekit",
+    "imagekit_s3",
+    "imagekit_pipeline",
     "surfaceFiles",
 ]
