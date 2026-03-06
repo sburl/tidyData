@@ -151,27 +151,30 @@ def catalog_images(source_dir, manifest_path, folder_date_parser=None):
 
     manifest = []
     for i, filepath in enumerate(all_files):
-        exif_date = extract_exif_date(filepath)
-        exif_iso = exif_date.isoformat() if exif_date else None
+        try:
+            exif_date = extract_exif_date(filepath)
+            exif_iso = exif_date.isoformat() if exif_date else None
 
-        if exif_iso:
-            date = exif_iso
-            date_source = 'exif'
-        elif folder_date_parser:
-            date = folder_date_parser(filepath)
-            date_source = 'folder'
-        else:
-            mtime = datetime.fromtimestamp(filepath.stat().st_mtime)
-            date = mtime.isoformat()
-            date_source = 'mtime'
+            if exif_iso:
+                date = exif_iso
+                date_source = 'exif'
+            elif folder_date_parser:
+                date = folder_date_parser(filepath)
+                date_source = 'folder'
+            else:
+                mtime = datetime.fromtimestamp(filepath.stat().st_mtime)
+                date = mtime.isoformat()
+                date_source = 'mtime'
 
-        manifest.append({
-            'source_dir': str(source_dir),
-            'relative_path': str(filepath.relative_to(source_dir)),
-            'date': date,
-            'date_source': date_source,
-            'size': filepath.stat().st_size,
-        })
+            manifest.append({
+                'source_dir': str(source_dir),
+                'relative_path': str(filepath.relative_to(source_dir)),
+                'date': date,
+                'date_source': date_source,
+                'size': filepath.stat().st_size,
+            })
+        except Exception as e:
+            print(f'  WARN: skipping {filepath.name}: {e}')
 
         if (i + 1) % 100 == 0 or i + 1 == total:
             print(f'  Cataloged {i + 1}/{total}')
@@ -274,6 +277,10 @@ def upload_new_photos(store, input_dir, uploaded_dir,
     Returns:
         List of dicts with key, url, orientation, width, height for each
         uploaded image.
+
+    Note:
+        Not safe for concurrent use — sequential numbering assumes
+        single-process execution.
     """
     input_dir = Path(input_dir)
     uploaded_dir = Path(uploaded_dir)
@@ -372,6 +379,14 @@ def upload_new_photos(store, input_dir, uploaded_dir,
     return entries
 
 
+def _yaml_safe_url(url):
+    """Strip control characters and quote if needed for safe YAML output."""
+    url = ''.join(c for c in str(url) if c >= ' ' or c == '\t')
+    if any(c in url for c in ':{}[],"\'|>&*!%#`@'):
+        return f'"{url}"'
+    return url
+
+
 def _numeric_key(name):
     """Extract numeric prefix from a key name for sorting."""
     stem = os.path.splitext(os.path.basename(name))[0]
@@ -444,10 +459,10 @@ def generate_image_yaml(store=None, manifest=None, base_url='',
     with open(output_path, 'w') as f:
         f.write('horizontal_images:\n')
         for url in horizontal:
-            f.write(f'- url: {url}\n')
+            f.write(f'- url: {_yaml_safe_url(url)}\n')
         f.write('\nvertical_images:\n')
         for url in vertical:
-            f.write(f'- url: {url}\n')
+            f.write(f'- url: {_yaml_safe_url(url)}\n')
 
     print(f'Generated {output_path}: {len(horizontal)} horizontal, {len(vertical)} vertical')
     return len(horizontal), len(vertical)
@@ -498,9 +513,9 @@ def update_image_yaml(output_path, new_entries):
     with open(output_path, 'w') as f:
         f.write('horizontal_images:\n')
         for url in horizontal:
-            f.write(f'- url: {url}\n')
+            f.write(f'- url: {_yaml_safe_url(url)}\n')
         f.write('\nvertical_images:\n')
         for url in vertical:
-            f.write(f'- url: {url}\n')
+            f.write(f'- url: {_yaml_safe_url(url)}\n')
 
     return len(new_h), len(new_v)
