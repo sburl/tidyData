@@ -65,7 +65,10 @@ class S3ImageStore:
         max_num = 0
         for page in paginator.paginate(Bucket=self.bucket):
             for obj in page.get('Contents', []):
-                basename = os.path.basename(obj['Key'])
+                key = obj['Key']
+                if key.startswith('thumbs/'):
+                    continue
+                basename = os.path.basename(key)
                 name = os.path.splitext(basename)[0]
                 try:
                     max_num = max(max_num, int(name))
@@ -149,7 +152,11 @@ class S3ImageStore:
             if not contents:
                 continue
             batch = [{'Key': o['Key']} for o in contents]
-            self.client.delete_objects(Bucket=self.bucket, Delete={'Objects': batch})
-            deleted += len(batch)
+            response = self.client.delete_objects(Bucket=self.bucket, Delete={'Objects': batch})
+            deleted += len(response.get('Deleted', []))
+            errors = response.get('Errors', [])
+            if errors:
+                for err in errors:
+                    print(f'  Failed to delete {err["Key"]}: {err["Message"]}')
 
         return deleted

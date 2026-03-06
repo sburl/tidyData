@@ -213,7 +213,14 @@ def sanitize_images(manifest_path, output_dir, quality=95):
 
     for i, entry in enumerate(manifest):
         seq = str(i + 1).zfill(digits)
-        local_path = Path(entry['source_dir']) / entry['relative_path']
+        source_dir = Path(entry['source_dir']).resolve()
+        local_path = (source_dir / entry['relative_path']).resolve()
+        if not local_path.is_relative_to(source_dir):
+            errors += 1
+            entry['new_key'] = None
+            entry['error'] = 'path traversal detected'
+            print(f'\n  ERROR [{entry["relative_path"]}]: path traversal detected')
+            continue
         ext = normalize_extension(local_path)
         out_name = f'{seq}{ext}'
         out_path = output_dir / out_name
@@ -314,7 +321,7 @@ def upload_new_photos(store, input_dir, uploaded_dir,
 
         print(f'  [{i+1}/{len(dated)}] {img_path.name} -> {key}', end='', flush=True)
 
-        uploaded_full = False
+        uploaded_keys = []
         try:
             w, h = strip_metadata(img_path, full_path, quality=full_quality)
             orientation = get_orientation(w, h)
@@ -322,8 +329,9 @@ def upload_new_photos(store, input_dir, uploaded_dir,
                            max_width=thumb_width, quality=thumb_quality)
 
             store.upload(full_path, key, width=w, height=h)
-            uploaded_full = True
+            uploaded_keys.append(key)
             store.upload(thumb_path, f'thumbs/{key}')
+            uploaded_keys.append(f'thumbs/{key}')
 
             entries.append({
                 'key': key,
@@ -339,9 +347,9 @@ def upload_new_photos(store, input_dir, uploaded_dir,
 
         except Exception as e:
             print(f'  ERROR: {e}')
-            if uploaded_full:
+            for orphan_key in uploaded_keys:
                 try:
-                    store.client.delete_object(Bucket=store.bucket, Key=key)
+                    store.client.delete_object(Bucket=store.bucket, Key=orphan_key)
                 except Exception:
                     pass
         finally:
@@ -457,9 +465,10 @@ def update_image_yaml(output_path, new_entries):
                 elif section == 'v':
                     vertical.append(url)
 
-    new_entries.sort(key=lambda e: e['key'], reverse=True)
-    new_h = [e['url'] for e in new_entries if e['orientation'] in ('horizontal', 'square')]
-    new_v = [e['url'] for e in new_entries if e['orientation'] == 'vertical']
+    new_entries.sort(key=lambda e: e.get('key', ''), reverse=True)
+    new_h = [e['url'] for e in new_entries
+             if e.get('orientation', 'horizontal') in ('horizontal', 'square')]
+    new_v = [e['url'] for e in new_entries if e.get('orientation') == 'vertical']
 
     horizontal = new_h + horizontal
     vertical = new_v + vertical
