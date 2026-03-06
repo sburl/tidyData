@@ -16,6 +16,7 @@ Usage:
 
 import os
 from pathlib import Path
+from urllib.parse import quote
 
 
 CONTENT_TYPES = {
@@ -56,15 +57,16 @@ class S3ImageStore:
 
     def url(self, key):
         """Return the public URL for an S3 key."""
-        return f'{self.base_url}/{key}'
+        return f'{self.base_url}/{quote(key, safe="/")}'
 
     def find_next_number(self):
         """Find the highest-numbered image in the bucket and return next number."""
         paginator = self.client.get_paginator('list_objects_v2')
         max_num = 0
-        for page in paginator.paginate(Bucket=self.bucket, Prefix='', Delimiter='/'):
+        for page in paginator.paginate(Bucket=self.bucket):
             for obj in page.get('Contents', []):
-                name = os.path.splitext(obj['Key'])[0]
+                basename = os.path.basename(obj['Key'])
+                name = os.path.splitext(basename)[0]
                 try:
                     max_num = max(max_num, int(name))
                 except ValueError:

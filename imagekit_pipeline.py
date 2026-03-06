@@ -21,6 +21,7 @@ Usage:
 import json
 import os
 import shutil
+import tempfile
 import time
 from datetime import datetime
 from pathlib import Path
@@ -159,7 +160,7 @@ def catalog_images(source_dir, manifest_path, folder_date_parser=None):
             date_source = 'mtime'
 
         manifest.append({
-            'local_path': str(filepath),
+            'source_dir': str(source_dir),
             'relative_path': str(filepath.relative_to(source_dir)),
             'date': date,
             'date_source': date_source,
@@ -199,7 +200,12 @@ def sanitize_images(manifest_path, output_dir, quality=95):
     with open(manifest_path) as f:
         manifest = json.load(f)
 
-    manifest.sort(key=lambda x: x['date'])
+    def _parse_date(entry):
+        try:
+            return datetime.fromisoformat(entry['date'])
+        except (ValueError, TypeError):
+            return datetime.min
+    manifest.sort(key=_parse_date)
     total = len(manifest)
     digits = len(str(total))
     errors = 0
@@ -207,12 +213,13 @@ def sanitize_images(manifest_path, output_dir, quality=95):
 
     for i, entry in enumerate(manifest):
         seq = str(i + 1).zfill(digits)
-        ext = normalize_extension(entry['local_path'])
+        local_path = Path(entry['source_dir']) / entry['relative_path']
+        ext = normalize_extension(local_path)
         out_name = f'{seq}{ext}'
         out_path = output_dir / out_name
 
         try:
-            w, h = strip_metadata(entry['local_path'], out_path, quality=quality)
+            w, h = strip_metadata(local_path, out_path, quality=quality)
             entry['new_key'] = out_name
             entry['width'] = w
             entry['height'] = h
@@ -278,8 +285,7 @@ def upload_new_photos(store, input_dir, uploaded_dir,
         return []
 
     uploaded_dir.mkdir(parents=True, exist_ok=True)
-    tmp_dir = input_dir.parent / '.processing'
-    tmp_dir.mkdir(parents=True, exist_ok=True)
+    tmp_dir = Path(tempfile.mkdtemp(prefix='imagekit-'))
 
     next_num = store.find_next_number()
     digits = max(4, len(str(next_num + len(images))))
@@ -308,6 +314,7 @@ def upload_new_photos(store, input_dir, uploaded_dir,
 
         print(f'  [{i+1}/{len(dated)}] {img_path.name} -> {key}', end='', flush=True)
 
+        uploaded_full = False
         try:
             w, h = strip_metadata(img_path, full_path, quality=full_quality)
             orientation = get_orientation(w, h)
@@ -315,6 +322,7 @@ def upload_new_photos(store, input_dir, uploaded_dir,
                            max_width=thumb_width, quality=thumb_quality)
 
             store.upload(full_path, key, width=w, height=h)
+            uploaded_full = True
             store.upload(thumb_path, f'thumbs/{key}')
 
             entries.append({
@@ -331,14 +339,16 @@ def upload_new_photos(store, input_dir, uploaded_dir,
 
         except Exception as e:
             print(f'  ERROR: {e}')
+            if uploaded_full:
+                try:
+                    store.client.delete_object(Bucket=store.bucket, Key=key)
+                except Exception:
+                    pass
         finally:
             full_path.unlink(missing_ok=True)
             thumb_path.unlink(missing_ok=True)
 
-    try:
-        tmp_dir.rmdir()
-    except OSError:
-        pass
+    shutil.rmtree(tmp_dir, ignore_errors=True)
 
     elapsed = time.time() - start
     print(f'Done in {elapsed:.0f}s. Uploaded {len(entries)}/{len(images)} images.')
@@ -365,6 +375,9 @@ def generate_image_yaml(store=None, manifest=None, base_url='',
     Returns:
         Tuple of (horizontal_count, vertical_count).
     """
+    if store is None and manifest is None:
+        raise ValueError('Either store or manifest must be provided')
+
     output_path = Path(output_path)
     output_path.parent.mkdir(parents=True, exist_ok=True)
 
