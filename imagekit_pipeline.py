@@ -100,6 +100,9 @@ def process_local_images(source_dir, web_dir, max_width=1200, quality=80,
             print(f'  SKIP {img_path.name}: symlink')
             continue
         web_path = web_dir / img_path.name
+        if web_path.is_symlink():
+            print(f'  SKIP {img_path.name}: output is symlink')
+            continue
         try:
             w, h = strip_metadata(img_path, img_path, quality=strip_quality)
             tw, th = make_thumbnail(img_path, web_path,
@@ -281,7 +284,7 @@ def upload_new_photos(store, input_dir, uploaded_dir,
         return []
 
     images = [f for f in sorted(input_dir.iterdir())
-              if f.is_file() and is_image(f)]
+              if f.is_file() and not f.is_symlink() and is_image(f)]
 
     if not images:
         print(f'No images found in {input_dir}/')
@@ -369,6 +372,15 @@ def upload_new_photos(store, input_dir, uploaded_dir,
     return entries
 
 
+def _numeric_key(name):
+    """Extract numeric prefix from a key name for sorting."""
+    stem = os.path.splitext(os.path.basename(name))[0]
+    try:
+        return int(stem)
+    except ValueError:
+        return -1
+
+
 # ── Manifest generation ───────────────────────────────────────────────────
 
 def generate_image_yaml(store=None, manifest=None, base_url='',
@@ -399,7 +411,7 @@ def generate_image_yaml(store=None, manifest=None, base_url='',
 
     if store is not None:
         keys = store.list_images()
-        keys.sort(reverse=newest_first)
+        keys.sort(key=_numeric_key, reverse=newest_first)
         print(f'Found {len(keys)} images. Reading dimensions...')
 
         for i, key in enumerate(keys):
@@ -420,7 +432,7 @@ def generate_image_yaml(store=None, manifest=None, base_url='',
 
     elif manifest is not None:
         entries = [e for e in manifest if e.get('new_key')]
-        entries.sort(key=lambda x: x['new_key'], reverse=newest_first)
+        entries.sort(key=lambda x: _numeric_key(x['new_key']), reverse=newest_first)
 
         for e in entries:
             url = f"{base_url}/{e['new_key']}" if base_url else e['new_key']
@@ -474,7 +486,7 @@ def update_image_yaml(output_path, new_entries):
                 elif section == 'v':
                     vertical.append(url)
 
-    new_entries.sort(key=lambda e: e.get('key', ''), reverse=True)
+    new_entries.sort(key=lambda e: _numeric_key(e.get('key', '')), reverse=True)
     new_h = [e['url'] for e in new_entries
              if e.get('orientation', 'horizontal') in ('horizontal', 'square')]
     new_v = [e['url'] for e in new_entries if e.get('orientation') == 'vertical']
