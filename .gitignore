@@ -1,0 +1,12 @@
+# Ignore user-specific folders and outputs
+/Users/sqb/Library/Mobile Documents/com~apple~CloudDocs/Downloads/autoSort/Grampy audio/processed/transcripts/
+Combined_Text_Files.txt
+All Markdown.md
+
+# Python / venv
+.venv/
+__pycache__/
+*.pyc
+
+# macOS
+.DS_Store
