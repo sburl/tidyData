@@ -1,0 +1,11 @@
+# Ignore output files
+Combined_Text_Files.txt
+All Markdown.md
+
+# Python / venv
+.venv/
+__pycache__/
+*.pyc
+
+# macOS
+.DS_Store
