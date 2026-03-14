@@ -1,5 +1,4 @@
-# Ignore user-specific folders and outputs
-/Users/sqb/Library/Mobile Documents/com~apple~CloudDocs/Downloads/autoSort/Grampy audio/processed/transcripts/
+# Ignore output files
 Combined_Text_Files.txt
 All Markdown.md
 
