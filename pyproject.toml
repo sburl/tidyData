@@ -10,10 +10,11 @@ readme = "README.md"
 license = "MIT"
 requires-python = ">=3.9"
 dependencies = [
-    "PyPDF2",
+    "pypdf",
     "EbookLib",
     "html2text",
     "Pillow",
+    "python-docx",
 ]
 
 [project.optional-dependencies]
