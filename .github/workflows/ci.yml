@@ -19,6 +19,7 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python-version }}
+          cache: pip
 
       - name: Install dependencies
         run: |
@@ -28,7 +29,10 @@ jobs:
 
       - name: Syntax-check all modules
         run: |
-          for f in *.py; do python -m py_compile "$f" && echo "OK: $f"; done
+          for f in *.py; do
+            [[ "$f" == test_*.py ]] && continue
+            python -m py_compile "$f" && echo "OK: $f"
+          done
 
       - name: Run tests
         run: pytest test_imagekit.py -v

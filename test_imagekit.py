@@ -94,7 +94,7 @@ class TestNeedsProcessing:
 PIL = pytest.importorskip("PIL", reason="Pillow not installed — skipping image I/O tests")
 
 from PIL import Image
-from imagekit import strip_metadata, make_thumbnail, get_image_size
+from imagekit import strip_metadata, make_thumbnail, get_dimensions as get_image_size
 
 
 def _make_jpeg(path: Path, width=100, height=80, color=(200, 100, 50)):
