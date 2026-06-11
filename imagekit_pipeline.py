@@ -104,7 +104,20 @@ def process_local_images(source_dir, web_dir, max_width=1200, quality=80,
             print(f'  SKIP {img_path.name}: output is symlink')
             continue
         try:
-            w, h = strip_metadata(img_path, img_path, quality=strip_quality)
+            # Strip metadata to a temp file first, then replace the original
+            # atomically so a mid-write failure never corrupts the source.
+            with tempfile.NamedTemporaryFile(
+                dir=img_path.parent,
+                suffix=img_path.suffix,
+                delete=False,
+            ) as tmp_f:
+                tmp_path_strip = Path(tmp_f.name)
+            try:
+                w, h = strip_metadata(img_path, tmp_path_strip, quality=strip_quality)
+                shutil.move(str(tmp_path_strip), str(img_path))
+            except Exception:
+                tmp_path_strip.unlink(missing_ok=True)
+                raise
             tw, th = make_thumbnail(img_path, web_path,
                                     max_width=max_width, quality=quality)
             processed += 1
@@ -496,6 +509,9 @@ def update_image_yaml(output_path, new_entries):
                 continue
             elif stripped.startswith('- url:'):
                 url = stripped[len('- url:'):].strip()
+                # Strip surrounding quotes that _yaml_safe_url may have added
+                if len(url) >= 2 and url[0] == '"' and url[-1] == '"':
+                    url = url[1:-1]
                 if section == 'h':
                     horizontal.append(url)
                 elif section == 'v':

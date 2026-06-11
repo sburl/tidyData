@@ -32,6 +32,8 @@ class S3ImageStore:
     """Parameterized S3 image storage."""
 
     def __init__(self, bucket, region='us-east-1'):
+        if not bucket:
+            raise ValueError("bucket must be a non-empty string")
         self.bucket = bucket
         self.region = region
         self.base_url = f'https://{bucket}.s3.{region}.amazonaws.com'
@@ -107,9 +109,8 @@ class S3ImageStore:
             response = self.client.get_object(Bucket=self.bucket, Key=key)
             body = response['Body']
             try:
-                img = Image.open(BytesIO(body.read()))
-                width, height = img.size
-                img.close()
+                with Image.open(BytesIO(body.read())) as img:
+                    width, height = img.size
             finally:
                 body.close()
 
