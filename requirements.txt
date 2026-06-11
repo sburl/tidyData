@@ -1,4 +1,5 @@
-PyPDF2
+pypdf
 EbookLib
 html2text
 Pillow
+python-docx

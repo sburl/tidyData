@@ -1,5 +1,5 @@
 import os
-from PyPDF2 import PdfReader, PdfWriter
+from pypdf import PdfReader, PdfWriter
 
 def combine_pdfs(folder_path, output_filename):
     # Get a list of all the PDF files in the folder
