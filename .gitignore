@@ -1,11 +1,34 @@
-# Ignore output files
+# ── Output files ─────────────────────────────────────────────────────────────
 Combined_Text_Files.txt
 All Markdown.md
 
-# Python / venv
-.venv/
+# ── Python ───────────────────────────────────────────────────────────────────
 __pycache__/
-*.pyc
+*.py[cod]
+*.egg-info/
+dist/
+build/
+*.whl
 
-# macOS
+# ── Virtual environments ──────────────────────────────────────────────────────
+.venv/
+venv/
+env/
+
+# ── Test + coverage artifacts ─────────────────────────────────────────────────
+.pytest_cache/
+.coverage
+htmlcov/
+
+# ── Type checker caches ───────────────────────────────────────────────────────
+.mypy_cache/
+.ruff_cache/
+
+# ── Editors and IDEs ──────────────────────────────────────────────────────────
+.vscode/
+.idea/
+*.swp
+*~
+
+# ── macOS ─────────────────────────────────────────────────────────────────────
 .DS_Store
