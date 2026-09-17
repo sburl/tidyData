@@ -1,7 +1,7 @@
 # tidyData
 
 **Created:** 2024-09-17
-**Last Updated:** 2026-03-05
+**Last Updated:** 2026-09-17
 
 **tidyData** is a collection of Python utilities for data tidying, file management, and image privacy. Strip metadata from photos, generate thumbnails, batch-process directories, and upload to S3 — all with simple library calls or CLI commands.
 
@@ -73,26 +73,67 @@ generate_image_yaml(store=store, output_path='images.yml')
 
 ## File Management Utilities
 
-### combineMarkdown.py
-Combines all Markdown (`.md`) files from a folder into a single file with headers.
+All modules are safe to import. File paths and split markers are supplied at runtime;
+no utility defaults to a personal Downloads folder or document.
 
-### combinePDFS.py
-Merges all PDF files from a folder into a single output PDF.
+```sh
+python -m combineMarkdown ./notes -o combined.md
+python -m combinePDFS ./pdfs -o combined.pdf
+python -m combineTextFiles ./notes -o combined.txt --extensions txt md
+python -m docSplice input.docx "First marker" "Second marker" part1.docx part2.docx part3.docx
+python -m epubToMarkdown ./books ./markdown
+python -m folderSizer ./files --min-size 0 -o report.txt
+python -m surfaceFiles ./export ./flattened
+```
 
-### combineTextFiles.py
-Combines all text files from a folder into one file with delimiters.
+The combiners process regular, non-symlink files in filename order. Output paths
+are relative to the input folder unless absolute. Existing combined output is
+excluded from inputs and replaced only after a successful write. Text must be
+UTF-8; a decoding failure leaves the previous output intact. Text output contains
+filenames, not absolute paths. Contents and filenames themselves are not redacted.
+PDF merging does not guarantee compression.
 
-### docSplice.py
-Splits large documents into sections based on patterns.
+`folderSizer` skips symbolic links so reports stay within the selected tree.
 
-### epubToMarkdown.py
-Converts EPUB files to Markdown format.
+`docSplice` requires two markers in order in separate paragraphs and three distinct,
+new output paths. It copies paragraph text only, not document formatting or tables.
 
-### folderSizer.py
-Analyzes folder sizes and file composition.
+`surfaceFiles` defaults to all regular file types and a flat destination. Source
+and destination trees must not overlap; symlinks are skipped. It cleans hashes
+and punctuation from names, includes relative ancestor names, and adds numbered
+suffixes on collision instead of overwriting. Names are limited by UTF-8 bytes.
+Repeated runs create additional numbered copies. This copies file contents; it
+does not strip metadata embedded in attachments. Use `imagekit` for image privacy.
 
-### surfaceFiles.py
-Flattens nested folder structures by copying files with cleaned names.
+To filter attachments or retain groups, opt in explicitly:
+
+```sh
+python -m surfaceFiles ./export ./attachments --extensions jpg png pdf
+python -m surfaceFiles ./export ./grouped --group-depth 1
+```
+
+`--group-depth 0` uses the top-level ancestor; `1` uses the next level, as in an
+export with a wrapper folder above its categories. There are no prescribed PARA
+category names. Files without that ancestor stay at the destination root.
+
+**Migration:** `process_files(source)` now writes to a sibling `source_Content`
+folder, copies all regular file types, and uses a flat layout by default. Pass an
+explicit output folder, `extensions`, and `group_depth` to reproduce a particular
+export layout. No scripts execute on import or use hardcoded example paths.
+
+## Development
+
+```sh
+python -m venv .venv
+. .venv/bin/activate
+python -m pip install -e ".[s3]" pytest
+python -m pytest
+```
+
+Virtual environments are local and ignored, not distributed with the repository.
+The build backend uses setuptools 84 or newer on Python 3.10+, with a compatible
+minimum of 77.0.3 on Python 3.9. Environment markers preserve the advertised Python
+3.9 baseline while keeping newer runtimes on the updated build backend.
 
 ## Installation
 
@@ -107,7 +148,7 @@ pip install "tidydata[s3] @ git+https://github.com/sburl/tidyData.git"
 ## Dependencies
 
 - `Pillow` — image processing
-- `PyPDF2` — PDF handling
+- `pypdf` — PDF handling
 - `EbookLib` + `html2text` — EPUB conversion
 - `boto3` — S3 storage (optional, install with `[s3]`)
 

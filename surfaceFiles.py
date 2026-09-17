@@ -1,97 +1,93 @@
+"""Flatten a directory tree into a separate destination without overwriting files."""
+import argparse
 import os
-import shutil
 import re
+import shutil
+from pathlib import Path
 
-# Function to clean up folder names and file names, removing ASCII or location strings
+
 def clean_name(name):
-    # Remove long hash-like sequences (e.g., UUIDs, random ASCII strings) from names
-    name = re.sub(r'[a-f0-9]{32,}', '', name)  # Remove any 32+ character hex strings
-    name = re.sub(r'[^\w\s-]', '', name).strip()  # Remove any non-alphanumeric characters
-    return name
+    name = re.sub(r'[a-f0-9]{32,}', '', name, flags=re.IGNORECASE)
+    return re.sub(r'[^\w\s-]', '', name).strip() or 'unnamed'
 
-# Function to truncate a filename to a maximum length
+
 def truncate_filename(filename, max_length=255):
-    if len(filename) > max_length:
-        # If filename is too long, truncate it while keeping the extension intact
-        name, ext = os.path.splitext(filename)
-        truncated_name = name[:max_length - len(ext) - 3] + "..." + ext
-        return truncated_name
-    return filename
+    """Limit the UTF-8 byte length, preserving the extension."""
+    if len(filename.encode('utf-8')) <= max_length:
+        return filename
+    stem, ext = os.path.splitext(filename)
+    budget = max_length - len(ext.encode('utf-8'))
+    if budget < 1:
+        raise ValueError('Extension exceeds filename length limit')
+    return stem.encode('utf-8')[:budget].decode('utf-8', errors='ignore') + ext
 
-# Define file type categories
-image_extensions = ['.jpeg', '.jpg', '.png', '.heic', '.tif', '.tiff', '.webp', '.gif', '.svg', '.avif']
-pdf_extensions = ['.pdf']
-spreadsheet_extensions = ['.xlsx', '.csv']
-document_extensions = ['.docx', '.odt', '.pages', '.xml', '.asc', '.txt']
 
-# Function to copy and move files based on their type
-def process_files(src_folder):
-    base_folder = os.path.dirname(src_folder)
-    parent_folder = os.path.dirname(base_folder)  # One level higher than the source folder
+def process_files(src_folder, output_folder=None, *, extensions=None, group_depth=None):
+    """Copy regular files; optionally group by a zero-based ancestor depth.
 
-    # Rename "Contents" folder to "{src_folder_name}_Content"
-    folder_name = os.path.basename(src_folder)
-    contents_folder = os.path.join(parent_folder, f"{folder_name}_Content")
-    
-    # Create the required folder structure
-    folders = ['Inbox', 'Projects', 'Areas of Responsibility', 'Archive', 'Resources']
-    for folder in folders:
-        os.makedirs(os.path.join(contents_folder, folder), exist_ok=True)
+    By default all file types are copied into one flat directory. Symlinks are
+    skipped. Existing destinations are preserved using numbered suffixes.
+    """
+    source = Path(src_folder).expanduser().resolve(strict=True)
+    if not source.is_dir():
+        raise NotADirectoryError(source)
+    destination = (Path(output_folder).expanduser() if output_folder is not None
+                   else source.with_name(source.name + '_Content')).resolve()
+    if destination == source or source in destination.parents or destination in source.parents:
+        raise ValueError('Source and destination must be separate, non-overlapping trees')
+    if group_depth is not None and group_depth < 0:
+        raise ValueError('group_depth must be nonnegative')
+    selected = None if extensions is None else {'.' + e.lower().lstrip('.') for e in extensions}
+    destination.mkdir(parents=True, exist_ok=True)
+    copied = []
+    for root, dirs, files in os.walk(source, followlinks=False):
+        dirs[:] = sorted(d for d in dirs if not (Path(root) / d).is_symlink())
+        for filename in sorted(files):
+            path = Path(root) / filename
+            if path.is_symlink() or not path.is_file():
+                continue
+            if selected is not None and path.suffix.lower() not in selected:
+                continue
+            parents = path.relative_to(source).parts[:-1]
+            target_dir = destination
+            if group_depth is not None and len(parents) > group_depth:
+                target_dir /= clean_name(parents[group_depth])
+                if target_dir.is_symlink():
+                    raise ValueError('Destination group must not be a symbolic link')
+                target_dir.mkdir(exist_ok=True)
+            stem = '_'.join([clean_name(p) for p in parents] + [clean_name(path.stem)])
+            number = 0
+            while True:
+                suffix = f' ({number})' if number else ''
+                base = truncate_filename(stem + path.suffix, 255 - len(suffix))
+                candidate = target_dir / (Path(base).stem + suffix + Path(base).suffix)
+                try:
+                    out = candidate.open('xb')
+                except FileExistsError:
+                    number += 1
+                    continue
+                try:
+                    with out, path.open('rb') as inp:
+                        shutil.copyfileobj(inp, out)
+                except BaseException:
+                    candidate.unlink()
+                    raise
+                copied.append(candidate)
+                break
+    return copied
 
-    # Traverse the source folder
-    for root, dirs, files in os.walk(src_folder):
-        for file in files:
-            # Get the file extension
-            file_extension = os.path.splitext(file)[1].lower()
 
-            # Check if the file is in one of the target types
-            if (file_extension in image_extensions + pdf_extensions + spreadsheet_extensions + document_extensions):
-                # Create a non-destructive (deep) copy of the file
-                file_path = os.path.join(root, file)
-                
-                # Find the relative path of the file to the src_folder
-                relative_path = os.path.relpath(root, src_folder)
+def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('source')
+    parser.add_argument('destination')
+    parser.add_argument('--extensions', nargs='+', help='Only copy these extensions')
+    parser.add_argument('--group-depth', type=int, help='Group by ancestor index (0 = top level)')
+    args = parser.parse_args()
+    copied = process_files(args.source, args.destination,
+                           extensions=args.extensions, group_depth=args.group_depth)
+    print(f'Copied {len(copied)} files')
 
-                # Split the relative path into folders
-                path_parts = relative_path.split(os.sep)
-                
-                # The first part is the main folder, the second is the folder like "Inbox," etc.
-                # We ignore these two and append the rest, if available
-                if len(path_parts) > 2:
-                    # Join the remaining parts to create the "appended path" using underscores
-                    appended_path = "_".join(path_parts[2:])
-                    file_name_without_ext, ext = os.path.splitext(file)  # Ensure the extension is preserved
-                    new_filename = f"{appended_path} || {file_name_without_ext}{ext}"
-                else:
-                    # If no extra folders to append, just use the original filename
-                    new_filename = file
 
-                # Clean folder and file names to remove unwanted characters and hashes
-                clean_name_parts = [clean_name(part) for part in path_parts[1:]]
-                clean_file_name_without_ext = clean_name(os.path.splitext(file)[0])  # Clean the file name without extension
-                
-                # Append the cleaned path and file name with proper separators, ensuring the extension is intact
-                if len(clean_name_parts) > 1:
-                    clean_appended_path = "_".join(clean_name_parts[1:])
-                    new_filename = f"{clean_appended_path} || {clean_file_name_without_ext}{file_extension}"
-                else:
-                    new_filename = f"{clean_file_name_without_ext}{file_extension}"
-
-                # Determine destination based on subfolder
-                clean_second_level_folder = clean_name(path_parts[1]) if len(path_parts) > 1 else ""
-                if clean_second_level_folder in folders:
-                    dest_folder = os.path.join(contents_folder, clean_second_level_folder)
-                else:
-                    dest_folder = contents_folder  # Default to Contents if subfolder doesn't match
-
-                # Ensure the file name does not exceed the max file name length
-                new_filename = truncate_filename(new_filename, 255)
-
-                # Copy the file to the appropriate folder with the new name
-                dest_path = os.path.join(dest_folder, new_filename)
-                shutil.copy2(file_path, dest_path)
-
-if __name__ == "__main__":
-    # Specify the source folder path here
-    source_folder = "/Users/sqb/Downloads/"
-    process_files(source_folder)
+if __name__ == '__main__':
+    main()

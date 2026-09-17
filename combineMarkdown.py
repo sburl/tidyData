@@ -1,26 +1,25 @@
-import os
+"""Combine Markdown files without including the previous output."""
+import argparse
 
-def combine_markdown_files(folder_path, output_file="All Markdown.md"):
-    # Define the full path of the output file in the original folder
-    output_file_path = os.path.join(folder_path, output_file)
+from fileutils import atomic_output, input_files
 
-    # Create/open the output file in write mode
-    with open(output_file_path, 'w') as outfile:
-        # Loop through all files in the folder
-        for filename in os.listdir(folder_path):
-            if filename.endswith(".md"):
-                file_path = os.path.join(folder_path, filename)
-                
-                # Write the largest header with the file name as the delimiter
-                outfile.write(f"# {filename}\n\n")
-                
-                # Open each markdown file and append its contents to the output file
-                with open(file_path, 'r') as infile:
-                    outfile.write(infile.read())
-                    outfile.write("\n\n")  # Add a new line after the content
 
-    print(f"Combined markdown files saved to: {output_file_path}")
+def combine_markdown_files(folder_path, output_file='All Markdown.md'):
+    files, output = input_files(folder_path, output_file, {'.md'})
+    with atomic_output(output) as out:
+        for path in files:
+            out.write(f'# {path.name}\n\n{path.read_text(encoding="utf-8")}\n\n')
+    print(f'Combined markdown files saved to: {output}')
+    return output
 
-# Example usage
-folder_path = "/Users/sqb/Downloads/"  # Replace with the path to your folder containing markdown files
-combine_markdown_files(folder_path)
+
+def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('folder')
+    parser.add_argument('-o', '--output', default='All Markdown.md')
+    args = parser.parse_args()
+    combine_markdown_files(args.folder, args.output)
+
+
+if __name__ == '__main__':
+    main()
