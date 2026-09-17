@@ -1,7 +1,7 @@
 # tidyData
 
 **Created:** 2024-09-17
-**Last Updated:** 2026-09-16
+**Last Updated:** 2026-09-17
 
 **tidyData** is a collection of Python utilities for data tidying, file management, and image privacy. Strip metadata from photos, generate thumbnails, batch-process directories, and upload to S3 — all with simple library calls or CLI commands.
 
@@ -131,8 +131,9 @@ python -m pytest
 ```
 
 Virtual environments are local and ignored, not distributed with the repository.
-The build backend minimum supports the advertised Python 3.9 baseline and the
-project’s license metadata; it is not tied to one developer’s installed version.
+The build backend uses setuptools 84 or newer on Python 3.10+, with a compatible
+minimum of 77.0.3 on Python 3.9. Environment markers preserve the advertised Python
+3.9 baseline while keeping newer runtimes on the updated build backend.
 
 ## Installation
 
