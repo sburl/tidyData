@@ -14,12 +14,10 @@ Usage from the command line:
 """
 
 import argparse
-import os
-import sys
+from datetime import datetime
 from pathlib import Path
 
-from PIL import Image, ImageOps, ExifTags
-from datetime import datetime
+from PIL import ExifTags, Image, ImageOps
 
 IMAGE_EXTENSIONS = {'.jpg', '.jpeg', '.png', '.gif', '.webp'}
 
@@ -56,9 +54,8 @@ def strip_metadata(src, dst, quality=95):
         # For palette PNGs, convert to RGBA to preserve any transparency,
         # then create a clean copy without metadata
         img = img.convert('RGBA')
-    elif img.mode not in ('RGB', 'L'):
-        if out_ext in ('.jpg', '.jpeg'):
-            img = img.convert('RGB')
+    elif img.mode not in ('RGB', 'L') and out_ext in ('.jpg', '.jpeg'):
+        img = img.convert('RGB')
 
     clean = Image.new(img.mode, img.size)
     clean.paste(img)
@@ -76,7 +73,7 @@ def make_thumbnail(src, dst, max_width=800, quality=80):
     given quality without upscaling.
 
     Args:
-        src: Path to source image (should already be metadata-stripped).
+        src: Path to source image. Source metadata is removed from the output.
         dst: Path to write the thumbnail.
         max_width: Maximum width in pixels.
         quality: JPEG quality (1-100). Ignored for PNG/GIF.
@@ -84,20 +81,27 @@ def make_thumbnail(src, dst, max_width=800, quality=80):
     Returns:
         (width, height) tuple of the output thumbnail.
     """
+    if max_width < 1:
+        raise ValueError("max_width must be positive")
     src, dst = Path(src), Path(dst)
     dst.parent.mkdir(parents=True, exist_ok=True)
 
-    img = Image.open(src)
-    img = ImageOps.exif_transpose(img)
+    with Image.open(src) as original:
+        img = ImageOps.exif_transpose(original)
     w, h = img.size
 
     if w > max_width:
         ratio = max_width / w
-        new_h = int(h * ratio)
+        new_h = max(1, int(h * ratio))
         img = img.resize((max_width, new_h), Image.LANCZOS)
         w, h = img.size
 
-    _save_image(img, dst, quality)
+    if img.mode == "P":
+        img = img.convert("RGBA")
+    clean = Image.new(img.mode, img.size)
+    clean.paste(img)
+    _save_image(clean, dst, quality)
+    clean.close()
     img.close()
     return w, h
 
@@ -135,7 +139,7 @@ def process_image(src, full_dst=None, thumb_dst=None,
             result['thumb_height'] = th
 
     elif thumb_dst:
-        # Thumbnail only — strip metadata into a temp then thumbnail
+        # Thumbnail-only output also strips metadata
         tw, th = make_thumbnail(src, thumb_dst,
                                 max_width=thumb_max_width,
                                 quality=thumb_quality)
@@ -171,12 +175,12 @@ def extract_exif_date(path):
         with Image.open(path) as img:
             try:
                 exif = img._getexif()
-            except Exception:
+            except (AttributeError, OSError, TypeError, ValueError):
                 exif = None
             if not exif:
                 try:
                     exif = dict(img.getexif())
-                except Exception:
+                except (AttributeError, OSError, TypeError, ValueError):
                     return None
             if not exif:
                 return None
@@ -186,14 +190,13 @@ def extract_exif_date(path):
             for tag_id, value in exif.items():
                 tag_name = ExifTags.TAGS.get(tag_id, '')
                 if tag_name in date_tags and isinstance(value, str):
-                    for fmt in ('%Y:%m:%d %H:%M:%S', '%Y:%m:%d'):
-                        try:
-                            dates.append(datetime.strptime(value, fmt))
-                            break
-                        except ValueError:
-                            continue
+                    try:
+                        # EXIF has no offset here; retain camera wall time.
+                        dates.append(datetime.fromisoformat(value.replace(':', '-', 2)))
+                    except ValueError:
+                        continue
             return min(dates) if dates else None
-    except Exception:
+    except (AttributeError, OSError, TypeError, ValueError):
         return None
 
 
